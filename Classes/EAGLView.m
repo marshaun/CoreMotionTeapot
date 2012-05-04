@@ -1,50 +1,3 @@
-/*
-    File: EAGLView.m
-Abstract: View to display OpenGL ES teapot, along with UI controls to adjust various motion properties.
- Version: 1.0
-
-Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple
-Inc. ("Apple") in consideration of your agreement to the following
-terms, and your use, installation, modification or redistribution of
-this Apple software constitutes acceptance of these terms.  If you do
-not agree with these terms, please do not use, install, modify or
-redistribute this Apple software.
-
-In consideration of your agreement to abide by the following terms, and
-subject to these terms, Apple grants you a personal, non-exclusive
-license, under Apple's copyrights in this original Apple software (the
-"Apple Software"), to use, reproduce, modify and redistribute the Apple
-Software, with or without modifications, in source and/or binary forms;
-provided that if you redistribute the Apple Software in its entirety and
-without modifications, you must retain this notice and the following
-text and disclaimers in all such redistributions of the Apple Software.
-Neither the name, trademarks, service marks or logos of Apple Inc. may
-be used to endorse or promote products derived from the Apple Software
-without specific prior written permission from Apple.  Except as
-expressly stated in this notice, no other rights or licenses, express or
-implied, are granted by Apple herein, including but not limited to any
-patent rights that may be infringed by your derivative works or by other
-works in which the Apple Software may be incorporated.
-
-The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
-MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
-THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS
-FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS USE AND
-OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
-
-IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL
-OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION,
-MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE, HOWEVER CAUSED
-AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE),
-STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
-
-Copyright (C) 2010 Apple Inc. All Rights Reserved.
-
-*/
-
 #import "EAGLView.h"
 
 #import "vector.h"
@@ -126,26 +79,6 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 	translationEnabled = sender.on;
 }
 
-- (IBAction)onModeControlValueChanged:(UISegmentedControl *)sender
-{
-	accelMode = (sender.selectedSegmentIndex == kSegmentIndexAccelerometer);
-	
-	if (accelMode) {
-		// If we're now in accelerometer mode, our old mode must have been device motion,
-		// so stop device motion and start accelerometer updates
-		// Note: The relevant update intervals were specified in startAnimation
-		[motionManager stopDeviceMotionUpdates];
-		[motionManager startAccelerometerUpdates];
-	} else {
-		// If we're now in device motion mode, our old mode must have been accelerometer,
-		// so stop accelerometer and start device motion
-		// Note: The relevant update intervals were specified in startAnimation
-		[motionManager stopAccelerometerUpdates];
-		[motionManager startDeviceMotionUpdates];
-	}
-	[self updateControls];
-}
-
 //The GL view is stored in the nib file. When it's unarchived it's sent -initWithCoder:
 - (id) initWithCoder:(NSCoder*)coder
 {
@@ -161,8 +94,7 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 		displayLink = nil;
 		motionManager = nil;
 		referenceAttitude = nil;
-		modeControl.selectedSegmentIndex = kSegmentIndexAccelerometer;
-		accelMode = (modeControl.selectedSegmentIndex == kSegmentIndexAccelerometer);
+		modeControl.selectedSegmentIndex = kSegmentIndexDeviceMotion;
 		
 		gravityLpf = [[LowpassFilter alloc] initWithCutoffFrequency:(gravityFilterSlider.maximumValue - gravityFilterSlider.value + kMinCutoffFrequency)];
 		
@@ -170,9 +102,7 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 		userAccelerationHpfLpf = [[LowpassFilter alloc] initWithCutoffFrequency:kUserAccelerationLpfCutoffFrequency];
 		
 		userAccelerationLpf = [[LowpassFilter alloc] initWithCutoffFrequency:kUserAccelerationLpfCutoffFrequency];
-		
-		[self updateControls];
-		
+			
 		context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 		
 		mat4f_identity(modelViewMatrix);
@@ -265,52 +195,26 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 	CMRotationMatrix rotation;
 	CMAcceleration userAcceleration;
 
-	if (accelMode) {
-	
-		// If we're in accelerometer mode, grab the latest sample of accelerometer data from
-		// CMMotionManager and send it to our filters
-	
-		// Use a low-pass filter to isolate gravity
-		CMAccelerometerData *accel = motionManager.accelerometerData;
-		[gravityLpf addAcceleration:accel.acceleration withTimestamp:accel.timestamp];
-		
-		// Use a high-pass filter to isolate user acceleration
-		[userAccelerationHpf addAcceleration:accel.acceleration withTimestamp:accel.timestamp];
-		
-		// The high-pass filtered user acceleration will be very noisy, so we send its output
-		// through a low-pass filter to smooth it a bit
-		CMAcceleration hpf = {userAccelerationHpf.x, userAccelerationHpf.y, userAccelerationHpf.z};
-		[userAccelerationHpfLpf addAcceleration:hpf withTimestamp:accel.timestamp];
-		
-		// Compute a rotation matrix that will rotate vector [0, 0, -1] to our low-pass filtered
-		// gravity estimate: [gravityLpf.x, gravityLpf.y, gravityLpf.z]
-		rotation = rotationMatrixFromGravity((float)gravityLpf.x, (float)gravityLpf.y, (float)gravityLpf.z);
+	CMDeviceMotion *deviceMotion = motionManager.deviceMotion;		
+	CMAttitude *attitude = deviceMotion.attitude;
 
-		// The user acceleration we want to use is the one computed by userAccelerationHpfLpf
-		userAcceleration.x = userAccelerationHpfLpf.x;
-		userAcceleration.y = userAccelerationHpfLpf.y;
-		userAcceleration.z = userAccelerationHpfLpf.z;
-	} else {
-		CMDeviceMotion *deviceMotion = motionManager.deviceMotion;		
-		CMAttitude *attitude = deviceMotion.attitude;
-
-		// If we have a reference attitude, multiply attitude by its inverse
-		// After this call, attitude will contain the rotation from referenceAttitude
-		// to the current orientation instead of from the fixed reference frame to the
-		// current orientation
-		if (referenceAttitude != nil) {
-			[attitude multiplyByInverseOfAttitude:referenceAttitude];
-		}
-		rotation = attitude.rotationMatrix;
-		
-		userAcceleration = deviceMotion.userAcceleration;
-		[userAccelerationLpf addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
-		
-		// The user acceleration we want to use is the one computed by userAccelerationLpf
-		userAcceleration.x = userAccelerationLpf.x;
-		userAcceleration.y = userAccelerationLpf.y;
-		userAcceleration.z = userAccelerationLpf.z;		
+    // If we have a reference attitude, multiply attitude by its inverse
+	// After this call, attitude will contain the rotation from referenceAttitude
+	// to the current orientation instead of from the fixed reference frame to the
+	// current orientation
+	if (referenceAttitude != nil) {
+		[attitude multiplyByInverseOfAttitude:referenceAttitude];
 	}
+	rotation = attitude.rotationMatrix;
+	
+	userAcceleration = deviceMotion.userAcceleration;
+	[userAccelerationLpf addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
+	
+	// The user acceleration we want to use is the one computed by userAccelerationLpf
+	userAcceleration.x = userAccelerationLpf.x;
+	userAcceleration.y = userAccelerationLpf.y;
+	userAcceleration.z = userAccelerationLpf.z;		
+
 	
 	// If translation is enabled, translate the teapot a distance proportional to user acceleration
 	if (translationEnabled) {
@@ -361,32 +265,10 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 	}
 }
 
-- (void) updateControls
-{
-	[gravityLpf setCutoffFrequency:(gravityFilterSlider.maximumValue - gravityFilterSlider.value + kMinCutoffFrequency)];
-	
-	translationLabel.hidden = NO;
-	translationSwitch.hidden = NO;
-
-	if (accelMode) {
-		gravityFilterLabel.hidden = NO;
-		gravityFilterSlider.hidden = NO;
-		
-		resetButton.hidden = YES;
-	} else {
-		gravityFilterLabel.hidden = YES;
-		gravityFilterSlider.hidden = YES;
-		
-		resetButton.hidden = NO;
-	}
-}
-
 - (void) startAnimation
 {
 	if (!animating)
-	{
-		[self updateControls];
-		
+	{		
 		// Create our CMMotionManager instance
 		if (motionManager == nil) {
 			motionManager = [[CMMotionManager alloc] init];
@@ -395,11 +277,8 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 		// Turn on the appropriate type of data
 		motionManager.accelerometerUpdateInterval = 0.01;
 		motionManager.deviceMotionUpdateInterval = 0.01;
-		if (accelMode) {
-			[motionManager startAccelerometerUpdates];
-		} else {
-			[motionManager startDeviceMotionUpdates];
-		}
+
+        [motionManager startDeviceMotionUpdates];
 		
 		modeControl.enabled = motionManager.isDeviceMotionAvailable;
 		

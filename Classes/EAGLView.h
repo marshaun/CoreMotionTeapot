@@ -94,10 +94,7 @@ Copyright (C) 2010 Apple Inc. All Rights Reserved.
 	} glHandles;
 	
 	CMMotionManager *motionManager;
-	
-	// YES when we're only using the accelerometer, NO when we're using device motion
-	BOOL accelMode;
-			
+		
 	// Low-pass filter for raw accelerometer data
 	// Only used the accelMode==YES	
 	LowpassFilter *gravityLpf;
@@ -132,7 +129,6 @@ Copyright (C) 2010 Apple Inc. All Rights Reserved.
 @property (readonly, nonatomic, getter=isAnimating) BOOL animating;
 @property (nonatomic) NSInteger animationFrameInterval;
 
-- (void) updateControls;
 - (void) startAnimation;
 - (void) stopAnimation;
 - (void) drawView:(id)sender;
@@ -140,7 +136,6 @@ Copyright (C) 2010 Apple Inc. All Rights Reserved.
 - (void) destroyFramebuffer;
 - (void) initializeGL;
 
-- (IBAction)onModeControlValueChanged:(UISegmentedControl *)sender;
 - (IBAction)onResetButton:(UIButton *)sender;
 - (IBAction)onGravityFilterValueChanged:(UISlider *)sender;
 - (IBAction)onTranslationValueChanged:(UISwitch *)sender;
