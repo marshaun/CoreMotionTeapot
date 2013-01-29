@@ -89,3 +89,19 @@
 -(id)initWithCutoffFrequency:(double)freq;
 
 @end
+
+@interface VelocityAccumulator : NSObject
+
+@property(nonatomic, readonly) double xV;
+@property(nonatomic, readonly) double yV;
+@property(nonatomic, readonly) double zV;
+@property(nonatomic, readonly) double xP;
+@property(nonatomic, readonly) double yP;
+@property(nonatomic, readonly) double zP;
+@property(nonatomic, readonly) CFTimeInterval lastTimestamp;
+
+-(id)init;
+-(void)addAcceleration:(CMAcceleration)accel withTimestamp:(NSTimeInterval)timestamp;
+-(void)reset;
+
+@end

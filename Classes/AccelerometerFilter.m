@@ -176,3 +176,48 @@ double Clamp(double v, double min, double max)
 }
 
 @end
+
+@implementation VelocityAccumulator
+
+@synthesize xV, yV, zV, xP, yP, zP, lastTimestamp;
+
+- (id)init
+{
+    self = [super init];
+    if (self) {
+        
+        [self reset];
+    }
+    return self;
+}
+
+- (void)reset
+{
+    xP = 0.0;
+    yP = 0.0;
+    zP = -0.4;
+    xV = yV = zV = 0.0;
+    lastTimestamp = -1.0;
+}
+
+-(void)addAcceleration:(CMAcceleration)accel withTimestamp:(NSTimeInterval)timestamp
+{
+    if (lastTimestamp > 0.0)
+    {
+        NSTimeInterval dt = timestamp - lastTimestamp;
+        
+        xV = xV + (accel.x * dt);
+        yV = yV + (accel.y * dt);
+        zV = zV + (accel.z * dt);
+            
+        xP = xP + (xV * dt);
+        yP = yP + (yV * dt);
+        zP = zP + (zV * dt);
+        
+        NSLog(@"%f %f %f %f", xP, yP, zP, dt);
+    }
+    
+    lastTimestamp = timestamp;
+}
+
+@end

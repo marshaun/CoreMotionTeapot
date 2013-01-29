@@ -117,7 +117,8 @@ Copyright (C) 2010 Apple Inc. All Rights Reserved.
 	// Only used when accelMode==NO
 	LowpassFilter *userAccelerationLpf;
 	
-	
+	VelocityAccumulator *velocityAccumulator;
+    
 	IBOutlet UISegmentedControl *modeControl;
 	IBOutlet UILabel *gravityFilterLabel;
 	IBOutlet UISlider *gravityFilterSlider;

@@ -11,7 +11,9 @@ static const double kUserAccelerationFilterConstant = 0.1;
 
 static const double kMinCutoffFrequency = 1;
 
-static const double kUserAccelerationHpfCutoffFrequency = 1000.0;
+//static const double kUserAccelerationHpfCutoffFrequency = 1000.0;
+//static const double kUserAccelerationLpfCutoffFrequency = 10.0;
+static const double kUserAccelerationHpfCutoffFrequency = 1.0;
 static const double kUserAccelerationLpfCutoffFrequency = 10.0;
 
 enum {
@@ -103,6 +105,7 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 		
 		userAccelerationLpf = [[LowpassFilter alloc] initWithCutoffFrequency:kUserAccelerationLpfCutoffFrequency];
 			
+        velocityAccumulator = [[VelocityAccumulator alloc]init];
 		context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 		
 		mat4f_identity(modelViewMatrix);
@@ -208,20 +211,38 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 	rotation = attitude.rotationMatrix;
 	
 	userAcceleration = deviceMotion.userAcceleration;
-	[userAccelerationLpf addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
+//	[userAccelerationLpf addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
+//	
+//	// The user acceleration we want to use is the one computed by userAccelerationLpf
+//	userAcceleration.x = userAccelerationLpf.x;
+//	userAcceleration.y = userAccelerationLpf.y;
+//	userAcceleration.z = userAccelerationLpf.z;
+	
+    [userAccelerationHpf addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
 	
 	// The user acceleration we want to use is the one computed by userAccelerationLpf
-	userAcceleration.x = userAccelerationLpf.x;
-	userAcceleration.y = userAccelerationLpf.y;
-	userAcceleration.z = userAccelerationLpf.z;		
+	userAcceleration.x = userAccelerationHpf.x;
+	userAcceleration.y = userAccelerationHpf.y;
+	userAcceleration.z = userAccelerationHpf.z;
 
 	
+    
 	// If translation is enabled, translate the teapot a distance proportional to user acceleration
 	if (translationEnabled) {
-		translation.x += userAcceleration.x;
-		translation.y += userAcceleration.y;
-		translation.z += userAcceleration.z;
+//		translation.x += userAcceleration.x;
+//		translation.y += userAcceleration.y;
+//		translation.z += userAcceleration.z;
+        
+        [velocityAccumulator addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
+        
+        translation.x = velocityAccumulator.xP;
+		translation.y = velocityAccumulator.yP;
+		translation.z = velocityAccumulator.zP;
 	}
+    else
+    {
+        [velocityAccumulator reset];
+    }
 	
 	// renderTeapotUsingRotation:andTranslation:translation: will rotate the teapot by the inverse
 	// of rotation and translate it by translation
