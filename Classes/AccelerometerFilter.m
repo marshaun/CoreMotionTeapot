@@ -46,6 +46,7 @@
 */
 
 #import "AccelerometerFilter.h"
+#import "CMDeviceMotion+TransformToReferenceFrame.h"
 
 // Implementation of the basic filter. All it does is mirror input to output.
 
@@ -200,21 +201,48 @@ double Clamp(double v, double min, double max)
     lastTimestamp = -1.0;
 }
 
--(void)addAcceleration:(CMAcceleration)accel withTimestamp:(NSTimeInterval)timestamp
+static const double accelClamp = 0.05;
+static const double vDecay = 0.95;
+
+-(void)addAcceleration:(CMDeviceMotion *)deviceMotion
 {
+    NSTimeInterval timestamp = deviceMotion.timestamp;
+    
     if (lastTimestamp > 0.0)
     {
+        CMAcceleration accel = deviceMotion.userAccelerationInReferenceFrame;
+        
+        BOOL accelerationClampedx = accel.x < accelClamp && accel.x > (accelClamp * -1.0);
+        BOOL accelerationClampedy = accel.y < accelClamp && accel.y > (accelClamp * -1.0);
+        BOOL accelerationClampedz = accel.z < accelClamp && accel.z > (accelClamp * -1.0);
+        
+        if (accelerationClampedx)
+            accel.x = 0.0;
+        if (accelerationClampedy)
+            accel.y = 0.0;
+        if (accelerationClampedz)
+            accel.z = 0.0;
+        
         NSTimeInterval dt = timestamp - lastTimestamp;
         
-        xV = xV + (accel.x * dt);
-        yV = yV + (accel.y * dt);
-        zV = zV + (accel.z * dt);
-            
+        // Acceleration needs to be combined with rotation here before processing.
+        
+        xV = xV + (accel.x * 9.81 * dt);
+        yV = yV + (accel.y * 9.81 * dt);
+        zV = zV + (accel.z * 9.81 * dt);
+        
         xP = xP + (xV * dt);
         yP = yP + (yV * dt);
         zP = zP + (zV * dt);
         
-        NSLog(@"%f %f %f %f", xP, yP, zP, dt);
+        NSLog(@"%f", xV);
+        
+        if (accelerationClampedx)
+            xV = xV * vDecay;
+        if (accelerationClampedy)
+            yV = yV * vDecay;
+        if (accelerationClampedz)
+            zV = zV * vDecay;
     }
     
     lastTimestamp = timestamp;

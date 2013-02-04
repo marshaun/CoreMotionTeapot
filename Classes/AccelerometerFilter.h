@@ -101,7 +101,7 @@
 @property(nonatomic, readonly) CFTimeInterval lastTimestamp;
 
 -(id)init;
--(void)addAcceleration:(CMAcceleration)accel withTimestamp:(NSTimeInterval)timestamp;
+-(void)addAcceleration:(CMDeviceMotion *)deviceMotion;
 -(void)reset;
 
 @end

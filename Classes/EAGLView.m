@@ -124,6 +124,8 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 {
 	[EAGLContext setCurrentContext:context];
     
+    
+    
 	glBindFramebuffer(GL_FRAMEBUFFER, viewFramebuffer);
 	
 	mat3f_t modelView3;
@@ -211,29 +213,10 @@ CMRotationMatrix rotationMatrixFromGravity(float x, float y, float z)
 	rotation = attitude.rotationMatrix;
 	
 	userAcceleration = deviceMotion.userAcceleration;
-//	[userAccelerationLpf addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
-//	
-//	// The user acceleration we want to use is the one computed by userAccelerationLpf
-//	userAcceleration.x = userAccelerationLpf.x;
-//	userAcceleration.y = userAccelerationLpf.y;
-//	userAcceleration.z = userAccelerationLpf.z;
-	
-    [userAccelerationHpf addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
-	
-	// The user acceleration we want to use is the one computed by userAccelerationLpf
-	userAcceleration.x = userAccelerationHpf.x;
-	userAcceleration.y = userAccelerationHpf.y;
-	userAcceleration.z = userAccelerationHpf.z;
-
-	
     
 	// If translation is enabled, translate the teapot a distance proportional to user acceleration
-	if (translationEnabled) {
-//		translation.x += userAcceleration.x;
-//		translation.y += userAcceleration.y;
-//		translation.z += userAcceleration.z;
-        
-        [velocityAccumulator addAcceleration:userAcceleration withTimestamp:deviceMotion.timestamp];
+	if (translationEnabled) {       
+        [velocityAccumulator addAcceleration:deviceMotion];
         
         translation.x = velocityAccumulator.xP;
 		translation.y = velocityAccumulator.yP;
